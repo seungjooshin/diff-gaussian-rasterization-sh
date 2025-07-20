@@ -17,7 +17,7 @@ namespace cg = cooperative_groups;
 
 // Forward method for converting the input spherical harmonics
 // coefficients of each Gaussian to a simple RGB color.
-__device__ glm::vec3 computeColorFromSH(int idx, int deg, int max_coeffs, const glm::vec3* means, glm::vec3 campos, const float* shs, bool* clamped)
+__device__ glm::vec3 computeColorFromSH(int idx, int deg, int max_coeffs, const int* sh_levels, const glm::vec3* means, glm::vec3 campos, const float* shs, bool* clamped)
 {
 	// The implementation is loosely based on code for 
 	// "Differentiable Point-Based Radiance Fields for 
@@ -26,17 +26,19 @@ __device__ glm::vec3 computeColorFromSH(int idx, int deg, int max_coeffs, const 
 	glm::vec3 dir = pos - campos;
 	dir = dir / glm::length(dir);
 
+	int sh_level = sh_levels[idx];
+
 	glm::vec3* sh = ((glm::vec3*)shs) + idx * max_coeffs;
 	glm::vec3 result = SH_C0 * sh[0];
 
-	if (deg > 0)
+	if (deg > 0 && sh_level > 0)
 	{
 		float x = dir.x;
 		float y = dir.y;
 		float z = dir.z;
 		result = result - SH_C1 * y * sh[1] + SH_C1 * z * sh[2] - SH_C1 * x * sh[3];
 
-		if (deg > 1)
+		if (deg > 1 && sh_level > 1)
 		{
 			float xx = x * x, yy = y * y, zz = z * z;
 			float xy = x * y, yz = y * z, xz = x * z;
@@ -47,7 +49,7 @@ __device__ glm::vec3 computeColorFromSH(int idx, int deg, int max_coeffs, const 
 				SH_C2[3] * xz * sh[7] +
 				SH_C2[4] * (xx - yy) * sh[8];
 
-			if (deg > 2)
+			if (deg > 2 && sh_level > 2)
 			{
 				result = result +
 					SH_C3[0] * y * (3.0f * xx - yy) * sh[9] +
@@ -160,6 +162,7 @@ __global__ void preprocessCUDA(int P, int D, int M,
 	const glm::vec4* rotations,
 	const float* opacities,
 	const float* shs,
+	const int* sh_levels,
 	bool* clamped,
 	const float* cov3D_precomp,
 	const float* colors_precomp,
@@ -240,7 +243,7 @@ __global__ void preprocessCUDA(int P, int D, int M,
 	// spherical harmonics coefficients to RGB color.
 	if (colors_precomp == nullptr)
 	{
-		glm::vec3 result = computeColorFromSH(idx, D, M, (glm::vec3*)orig_points, *cam_pos, shs, clamped);
+		glm::vec3 result = computeColorFromSH(idx, D, M, sh_levels, (glm::vec3*)orig_points, *cam_pos, shs, clamped);
 		rgb[idx * C + 0] = result.x;
 		rgb[idx * C + 1] = result.y;
 		rgb[idx * C + 2] = result.z;
@@ -406,6 +409,7 @@ void FORWARD::preprocess(int P, int D, int M,
 	const glm::vec4* rotations,
 	const float* opacities,
 	const float* shs,
+	const int* sh_levels,
 	bool* clamped,
 	const float* cov3D_precomp,
 	const float* colors_precomp,
@@ -433,6 +437,7 @@ void FORWARD::preprocess(int P, int D, int M,
 		rotations,
 		opacities,
 		shs,
+		sh_levels,
 		clamped,
 		cov3D_precomp,
 		colors_precomp,

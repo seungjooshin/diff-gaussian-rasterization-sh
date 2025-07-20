@@ -37,6 +37,7 @@ namespace CudaRasterizer
 			const int width, int height,
 			const float* means3D,
 			const float* shs,
+			const int* sh_levels,
 			const float* colors_precomp,
 			const float* opacities,
 			const float* scales,

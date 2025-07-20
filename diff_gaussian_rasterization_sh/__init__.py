@@ -22,6 +22,7 @@ def rasterize_gaussians(
     means3D,
     means2D,
     sh,
+    sh_levels,
     colors_precomp,
     opacities,
     scales,
@@ -33,6 +34,7 @@ def rasterize_gaussians(
         means3D,
         means2D,
         sh,
+        sh_levels,
         colors_precomp,
         opacities,
         scales,
@@ -48,6 +50,7 @@ class _RasterizeGaussians(torch.autograd.Function):
         means3D,
         means2D,
         sh,
+        sh_levels,
         colors_precomp,
         opacities,
         scales,
@@ -73,6 +76,7 @@ class _RasterizeGaussians(torch.autograd.Function):
             raster_settings.image_height,
             raster_settings.image_width,
             sh,
+            sh_levels,
             raster_settings.sh_degree,
             raster_settings.campos,
             raster_settings.prefiltered,
@@ -154,7 +158,7 @@ class _RasterizeGaussians(torch.autograd.Function):
 
         return grads
 
-class GaussianRasterizationSettings(NamedTuple):
+class GaussianRasterizationSHSettings(NamedTuple):
     image_height: int
     image_width: int 
     tanfovx : float
@@ -168,7 +172,7 @@ class GaussianRasterizationSettings(NamedTuple):
     prefiltered : bool
     debug : bool
 
-class GaussianRasterizer(nn.Module):
+class GaussianRasterizerSH(nn.Module):
     def __init__(self, raster_settings):
         super().__init__()
         self.raster_settings = raster_settings
@@ -184,7 +188,7 @@ class GaussianRasterizer(nn.Module):
             
         return visible
 
-    def forward(self, means3D, means2D, opacities, shs = None, colors_precomp = None, scales = None, rotations = None, cov3D_precomp = None):
+    def forward(self, means3D, means2D, opacities, shs = None, sh_levels = None, colors_precomp = None, scales = None, rotations = None, cov3D_precomp = None):
         
         raster_settings = self.raster_settings
 
@@ -196,6 +200,8 @@ class GaussianRasterizer(nn.Module):
         
         if shs is None:
             shs = torch.Tensor([])
+        if sh_levels is None:
+            sh_levels = torch.Tensor([])
         if colors_precomp is None:
             colors_precomp = torch.Tensor([])
 
@@ -211,6 +217,7 @@ class GaussianRasterizer(nn.Module):
             means3D,
             means2D,
             shs,
+            sh_levels,
             colors_precomp,
             opacities,
             scales, 
